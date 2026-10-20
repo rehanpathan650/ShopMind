@@ -1,0 +1,2 @@
+{"name":"shopmind-api","type":"module","scripts":{"dev":"node --env-file=.env --watch src/index.js","start":"node src/index.js"},
+"dependencies":{"@anthropic-ai/sdk":"latest","@modelcontextprotocol/sdk":"^1.32.1","bcryptjs":"^2.4.3","cors":"^2.8.5","express":"^4.19.2","jsonwebtoken":"^9.0.2","pg":"^8.12.0","zod":"^4.0.0"}}
