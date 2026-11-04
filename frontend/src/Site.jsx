@@ -30,20 +30,147 @@ const INFO = {
     ["Why careful", "AI should help, not surprise you. Nothing changes without your yes."]] },
 };
 
+
 function Nav({ open }) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [activeDropdown, setActiveDropdown] = useState(null);
+
+  const closeMobile = () => {
+    setMobileOpen(false);
+    setActiveDropdown(null);
+  };
+
   return (
     <header className="nav">
-      <a href="#/" className="logo">Shop<i>Mind</i></a>
+      <a href="#/" className="logo" onClick={closeMobile}>
+        Shop<i>Mind</i>
+      </a>
+
+      {/* Desktop navigation */}
       <nav className="links">
-        {NAV.map(([n, x]) => Array.isArray(x)
-          ? <div className="dd" key={n}><span>{n} ▾</span><div className="menu"><div>{x.map(([l, p]) => <a key={l} href={`#/${p}`}>{l}</a>)}</div></div></div>
-          : <a key={n} href={`#/${x}`}>{n}</a>)}
+        {NAV.map(([name, items]) =>
+          Array.isArray(items) ? (
+            <div className="dd" key={name}>
+              <span>{name} ▾</span>
+              <div className="menu">
+                <div>
+                  {items.map(([label, path]) => (
+                    <a key={label} href={`#/${path}`}>
+                      {label}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <a key={name} href={`#/${items}`}>
+              {name}
+            </a>
+          )
+        )}
       </nav>
-      <button className="btn ghost" onClick={() => open("login")}>Log in</button>
-      <button className="btn hide" onClick={() => open("register")}>Get started</button>
+
+      {/* Desktop actions */}
+      <div className="nav-actions">
+        <button
+          className="btn ghost"
+          onClick={() => open("login")}
+        >
+          Log in
+        </button>
+
+        <button
+          className="btn"
+          onClick={() => open("register")}
+        >
+          Get started
+        </button>
+      </div>
+
+      {/* Mobile menu toggle */}
+      <button
+        className="mobile-toggle"
+        aria-label={mobileOpen ? "Close menu" : "Open menu"}
+        aria-expanded={mobileOpen}
+        aria-controls="mobile-navigation"
+        onClick={() => setMobileOpen(!mobileOpen)}
+      >
+        {mobileOpen ? "✕" : "☰"}
+      </button>
+
+      {/* Mobile navigation */}
+      {mobileOpen && (
+        <nav className="mobile-menu" id="mobile-navigation">
+          {NAV.map(([name, items]) =>
+            Array.isArray(items) ? (
+              <div className="mobile-group" key={name}>
+                <button
+                  className="mobile-dropdown-toggle"
+                  onClick={() =>
+                    setActiveDropdown(
+                      activeDropdown === name ? null : name
+                    )
+                  }
+                  aria-expanded={activeDropdown === name}
+                >
+                  {name}
+                  <span>
+                    {activeDropdown === name ? "−" : "+"}
+                  </span>
+                </button>
+
+                {activeDropdown === name && (
+                  <div className="mobile-submenu">
+                    {items.map(([label, path]) => (
+                      <a
+                        key={label}
+                        href={`#/${path}`}
+                        onClick={closeMobile}
+                      >
+                        {label}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <a
+                key={name}
+                href={`#/${items}`}
+                onClick={closeMobile}
+              >
+                {name}
+              </a>
+            )
+          )}
+
+          <div className="mobile-actions">
+            <button
+              className="btn ghost"
+              onClick={() => {
+                closeMobile();
+                open("login");
+              }}
+            >
+              Log in
+            </button>
+
+            <button
+              className="btn"
+              onClick={() => {
+                closeMobile();
+                open("register");
+              }}
+            >
+              Get started
+            </button>
+          </div>
+        </nav>
+      )}
     </header>
   );
 }
+
 
 const Head = ({ pill, t, s }) => (
   <motion.div className="hero1" style={{ paddingBottom: 10 }} initial="hidden" animate="show" transition={{ staggerChildren: 0.1 }}>
