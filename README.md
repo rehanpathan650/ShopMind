@@ -1,179 +1,182 @@
 # ShopMind 🛍️
-### Your shop's AI-powered business assistant
+### The AI back office for India's small businesses
 
-**ShopMind helps small Indian shop owners manage everyday business operations through a simple conversation.** Instead of navigating multiple dashboards or manually updating records, shop owners can interact with an AI assistant to check inventory, track customer dues, record credit sales, and more.
+**ShopMind runs inventory, udhaar (customer credit), billing, expenses and suppliers from one conversation.** It's powered by Claude, open to any AI agent through the Model Context Protocol (MCP), and **nothing changes without the owner's approval**.
 
-Built with **React, Node.js, PostgreSQL, Claude, and the Model Context Protocol (MCP)**.
+Built with **React, Node.js, PostgreSQL, Claude and MCP**.
 
-🌐 **Live Demo:** https://shopmind-frontend.vercel.app/
-
-📦 **Source Code:** https://github.com/rehanpathan650/ShopMind
+🌐 **Live demo:** https://shopmind-frontend.vercel.app/
+📦 **Source:** https://github.com/rehanpathan650/ShopMind
 
 ---
 
-## 💡 The Idea
+## ✨ What it does
 
-Running a small shop involves a lot of repetitive work: checking stock, remembering who owes money, recording credit sales, and keeping business information organized.
+| Module | Highlights |
+|---|---|
+| 🤖 **AI assistant** | Claude plans multi-step work across 44 tools. It replies in English, Hindi or Hinglish, shows which tools it used, and turns proposed changes into Approve/Reject cards. |
+| 📦 **Inventory** | Products with SKU, category, unit, price, cost and reorder level. Margins, stock valuation, low-stock report with reorder suggestions based on sales velocity, and stock counts. |
+| 👥 **Customers & udhaar** | Credit ledger with running-balance statements, credit limits, dues aging (0-30/31-60/61-90/90+), and reminder drafts in English and Hindi. |
+| 🧾 **Sales** | Itemised bills that deduct stock and capture cost for profit. Payment by cash, UPI, card or credit (credit adds to dues). Discounts, one-click voids, top products, revenue by day and by payment method. |
+| 💸 **Expenses & P&L** | Categorised expenses and a profit & loss statement (revenue, COGS, gross margin, expenses, net profit) for any period. |
+| 🚚 **Suppliers** | Supplier directory and goods-received log that adds stock and updates cost price. |
+| 🔌 **API & MCP** | Scoped API keys, a remote MCP server (44 tools, 3 resources, 3 prompts) and REST access to the same tools. |
+| 📜 **Audit & export** | Append-only activity log for every read, staged change, approval, login and export. CSV export for products, customers, sales, ledger and expenses. |
 
-ShopMind explores a different approach: **what if you could manage your shop by simply asking an AI assistant?**
-
-For example, instead of opening several screens to find information, a shop owner could ask:
-
-- "Which products are running low on stock?"
-- "How much does this customer owe me?"
-- "Record this sale as a credit sale."
-- "Add 20 units of rice to my inventory."
-
-The assistant uses connected tools to retrieve information or perform supported operations through ShopMind's backend.
-
-*These are illustrative examples of the intended interaction. The exact requests supported depend on the available tools and implementation.*
-
-## ✨ Features
-
-- **Conversational business management** — interact with shop operations using natural language.
-- **Inventory management** — check stock and add inventory.
-- **Customer dues** — look up outstanding customer balances.
-- **Credit sales** — record supported credit-sale transactions.
-- **AI tool calling** — connect language-model reasoning to actual backend operations.
-- **MCP integration** — expose business functionality through a Model Context Protocol server.
-- **Explicit action confirmation** — confirm data-changing actions before execution.
-- **Shop-specific context** — associate the MCP integration with the relevant shop.
-- **Auditability** — maintain an audit trail of supported operations.
-
-## 🧠 How It Works
-
-ShopMind combines a conversational interface with backend tools that an AI model can invoke.
+## 🧠 Architecture
 
 ```text
-Shop Owner
-    |
-    | Natural-language request
-    v
-ShopMind Chat Interface
-    |
-    v
-Claude / AI Tool Calling
-    |
-    v
-ShopMind MCP Server
-    |
-    v
-Backend APIs and PostgreSQL
-    |
-    v
-Business Data / Operation Result
-    |
-    v
-Response to the Shop Owner
+Browser (React)                MCP clients / scripts
+  │ httpOnly session cookie       │ Bearer sm_live_... (scoped API key)
+  ▼                               ▼
+Express API ── security layer: helmet · CORS allow-list · CSRF guard · rate limits
+  │
+  ├── /api/chat ──► AI agent (Claude) ──► in-process MCP client ─┐
+  ├── /mcp  (Streamable HTTP) ───────────────────────────────────┤
+  ├── /api/tools/:name (REST) ───────────────────────────────────┤
+  │                                                              ▼
+  │                                   Tool registry (44 tools, zod-validated)
+  │                                     reads ──► run now
+  │                                     writes ─► staged in pending_actions
+  │                                                 └─► owner approves ─► run in a transaction + audit
+  ▼
+PostgreSQL (shop-scoped rows, append-only audit_log)
 ```
 
-### Why MCP?
+The AI assistant reaches data **only through the MCP server**, so it has exactly the same tools and approval rules as any external agent.
 
-The **Model Context Protocol (MCP)** provides a standardized way for AI applications to discover and use tools exposed by a server.
+### Backend layout
 
-In ShopMind, the MCP server acts as the bridge between an AI agent and shop-management operations. Instead of embedding every business action directly into a chatbot, functionality can be exposed as tools that a compatible agent can invoke.
+```text
+backend/src/
+├── index.js            # boot: migrate, listen, housekeeping, graceful shutdown
+├── app.js              # express app, middleware, routes, error handler
+├── config.js           # all env vars, validated once
+├── db.js · migrations.js · seed.js
+├── actions.js          # tool engine: run reads, stage writes, approve/cancel
+├── security/           # auth (cookies + API keys), apiKeys, password, middleware
+├── ai/                 # agent loop (Claude, optional Groq) + system prompt
+├── mcp/server.js       # MCP tools, resources, prompts; in-process + remote HTTP
+├── tools/              # inventory, customers, sales, expenses, suppliers, analytics
+├── routes/             # auth.js, api.js
+└── lib/http.js         # errors, validation, paging, CSV
+```
 
-This also creates an opportunity to make ShopMind's business tools accessible to other compatible AI clients, subject to the required connection, authentication, and configuration.
+### Frontend layout
 
-## 🛠️ Tech Stack
+```text
+frontend/src/
+├── App.jsx                  # session bootstrap, site vs app
+├── site/                    # marketing site, docs, pricing, auth modal
+├── app/Shell.jsx            # sidebar app shell
+├── app/pages/               # Overview, Assistant, Approvals, Inventory, Customers,
+│                            # Sales, Expenses, Suppliers, Activity, Developers, Settings
+├── components/ui.jsx        # buttons, cards, modals, forms, toasts
+└── lib/                     # api client, hooks, formatters
+```
 
-| Layer | Technology |
+## 🔐 Security
+
+- **Human-in-the-loop writes.** The AI assistant, MCP clients and API keys can only *stage* changes. They run only when the logged-in owner approves them. Pending actions expire after 24 hours, are re-validated before they run, and are row-locked so they can't run twice.
+- **Sessions in httpOnly cookies** (`Secure`, `SameSite=Strict`), so JavaScript can't read the token. "Sign out everywhere" and password changes revoke all sessions through a token version.
+- **CSRF guard.** Cookie-authenticated writes must send `X-Requested-With: ShopMind`, which browsers can't send cross-origin without a CORS preflight.
+- **Scoped API keys** (`read` or `read + write`). Stored as SHA-256 hashes, shown once, with optional expiry, last-used tracking and instant revoke. Keys can never approve actions.
+- **Brute-force protection.** Rate limits on auth, chat and the API; account lockout after 5 failed logins; constant-time login; and a password policy (10+ characters, letters and digits, not a common password).
+- **Hardened HTTP.** helmet headers and CSP, HSTS in production, a CORS allow-list, a 256 KB body limit, request IDs, and errors that never expose SQL or stack traces. The Vercel config adds CSP, frame, referrer and permissions headers.
+- **Tenant isolation.** Every query is scoped by the shop ID from a verified credential, with parameterized SQL only.
+- **Validation.** Every tool input is checked with a strict zod schema. CSV exports are guarded against formula injection.
+- **Secrets stay server-side.** The Anthropic API key never reaches the browser.
+
+## 🚀 Getting started
+
+### 1. Configure the backend
+
+```bash
+cd backend
+cp .env.example .env
+```
+
+Edit `.env` and set at least:
+
+| Variable | Value |
 |---|---|
-| Frontend | React |
-| UI and animations | Framer Motion |
-| Backend | Node.js, Express |
-| Database | PostgreSQL |
-| AI integration | Claude tool calling |
-| Tool integration | Model Context Protocol (MCP) |
-| Deployment | Vercel for the frontend; backend hosting as configured |
+| `ANTHROPIC_API_KEY` | Your Claude API key from https://platform.claude.com/settings/keys |
+| `JWT_SECRET` | 32+ random characters: `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"` |
+| `DATABASE_URL` | Your PostgreSQL connection string |
+| `CORS_ORIGINS` | Your frontend origin(s), e.g. `https://shopmind-frontend.vercel.app` |
 
-## 🏗️ Project Architecture
+The model defaults to `claude-opus-5-5`. Set `ANTHROPIC_MODEL=claude-sonnet-5-5` for lower cost.
 
-ShopMind separates the user-facing chat experience from the business logic and database operations.
+### 2. Run
 
-- **Frontend:** provides the conversational interface.
-- **Backend:** handles application logic and business operations.
-- **MCP server:** exposes supported business functionality as tools for compatible AI clients.
-- **Database:** stores shop-related information.
-- **AI model:** interprets requests and selects relevant tools.
-
-This separation makes the system easier to extend with additional business operations and compatible AI clients.
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-Before running ShopMind locally, make sure you have:
-
-- Node.js and npm installed.
-- Access to a PostgreSQL database.
-- The environment variables required by the frontend and backend.
-- The necessary AI provider credentials.
-- The MCP configuration required by the client you intend to use.
-
-### Installation
-
-Clone the repository:
+With Docker:
 
 ```bash
-git clone https://github.com/rehanpathan650/ShopMind.git
-cd ShopMind
+docker compose up --build      # Postgres + API on http://localhost:4000
 ```
 
-Install dependencies in the relevant frontend and backend directories, following the repository's package structure.
+Or directly (Node 22+):
 
 ```bash
-npm install
+cd backend && npm install && npm run dev
+cd frontend && npm install && npm run dev   # http://localhost:5173 (proxies /api and /mcp)
 ```
 
-Configure the required environment variables using the example configuration provided in the relevant project directory, if available.
+Migrations run automatically on boot. Tick **"Load a demo shop"** at sign-up to get products, customers, suppliers, two weeks of sales and expenses.
 
-Start the frontend and backend using the scripts defined in their respective `package.json` files.
+### 3. Deploy
 
-> **Note:** Exact commands, environment variable names, database migrations, and MCP client configuration depend on the current repository setup. Refer to the project files for the authoritative instructions.
+- **Backend (e.g. Render):** set the env vars above plus `NODE_ENV=production` and `TRUST_PROXY=true`.
+- **Frontend (Vercel):** `vercel.json` rewrites `/api/*` and `/mcp` to the backend, so the browser stays same-origin and cookies work. Update the backend URL there if it changes.
 
-## 🔐 Security and Data Integrity
+## 🔌 Connect an AI agent (MCP)
 
-AI-powered business operations need safeguards because some actions modify real records.
+1. In the app, open **API & MCP**, click **New API key**, and pick read-only or read + propose changes.
+2. Connect your client:
 
-ShopMind is designed around principles such as:
+```bash
+# Claude Code
+claude mcp add --transport http shopmind https://<your-domain>/mcp \
+  --header "Authorization: Bearer sm_live_..."
+```
 
-- Explicit confirmation for data-changing actions.
-- Server-side validation of incoming operations.
-- Shop-specific access boundaries.
-- Protected credentials and environment variables.
-- Auditable business operations.
+Or call tools over REST:
 
-The effectiveness of these protections depends on the actual implementation and deployment configuration. Do not connect production business data to an unverified setup.
+```bash
+curl -X POST https://<your-domain>/api/tools/get_dues \
+  -H "Authorization: Bearer sm_live_..." -H "Content-Type: application/json" \
+  -d '{"args":{"min_amount":10000}}'
+```
 
-## 🗺️ What's Next?
+Write tools return `202 pending_approval` and appear in the owner's **Approvals** inbox.
 
-Potential directions for future development include:
+**MCP resources:** `shopmind://summary`, `shopmind://inventory`, `shopmind://approvals`
+**MCP prompts:** `daily_briefing`, `collections_plan`, `restock_plan`
 
-- Support for additional MCP-compatible AI clients.
-- More inventory and sales analytics.
-- Automated business summaries.
-- Low-stock alerts and customer payment reminders.
-- Improved onboarding and simpler MCP configuration.
-- Additional tools for everyday small-business workflows.
+<details>
+<summary><b>All 44 tools</b></summary>
 
-## 🎯 Why I Built ShopMind
+| Category | Read | Write (needs approval) |
+|---|---|---|
+| Inventory | list_products, get_stock, product_details, low_stock_report, inventory_valuation | create_product, update_product, delete_product, add_stock, remove_stock, adjust_stock, clear_stock |
+| Customers | list_customers, get_dues, customer_statement, dues_aging, draft_reminder_message | create_customer, update_customer, delete_customer, record_credit_sale, record_payment, send_reminder |
+| Sales | list_sales, sale_details, sales_report, top_products | record_sale, void_sale |
+| Expenses | list_expenses, expense_report | record_expense, delete_expense |
+| Suppliers | list_suppliers, list_purchases | create_supplier, update_supplier, delete_supplier, record_purchase |
+| Analytics | business_summary, profit_and_loss, customer_insights, search_everything, recent_activity | — |
 
-ShopMind explores how AI agents can move beyond answering questions and become useful interfaces for real-world business workflows.
+</details>
 
-The project combines conversational AI, tool calling, backend APIs, database operations, and MCP into a practical small-business use case.
+## 🗺️ What's next
 
-The broader goal is to make business software more accessible by letting people interact with their data in natural language.
+- WhatsApp delivery for reminders and daily briefings
+- Multiple staff logins with roles
+- GST invoices and PDF bills
+- Streaming assistant replies
 
 ## 🤝 Contributing
 
-Contributions, suggestions, and discussions about AI agents, MCP integrations, and small-business automation are welcome.
-
-Feel free to open an issue or submit a pull request.
-
-## 📄 License
-
-See the repository's `LICENSE` file for the applicable license and usage permissions.
+Issues and pull requests are welcome, especially new tools for everyday small-business workflows.
 
 ---
 
